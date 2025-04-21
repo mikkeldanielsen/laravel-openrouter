@@ -66,7 +66,7 @@ final class OpenRouterRequest extends OpenRouterAPI
             $options
         );
 
-		if(isset($response['error']['code']) && $response['error']['code'] === 429) {
+		if($response->getStatusCode() === 429) {
 			return new ErrorData(
 				code: 429,
 				message: 'Rate limit exceeded. Please try again later.',
