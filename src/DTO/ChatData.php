@@ -54,6 +54,16 @@ final class ChatData extends DataTransferObject
         public ?ResponseFormatData $response_format = null,
 
         /**
+         * Include usage information in the response.
+         * This feature provides detailed information about token counts, costs, and caching status directly in your API responses
+         * (Default value is false, enabling usage accounting will add a few hundred milliseconds to the last response as the API calculates token counts and costs)
+         * See: https://openrouter.ai/docs/use-cases/usage-accounting
+         *
+         * @var bool
+         */
+        public bool $usage = false,
+
+        /**
          * Stop generation immediately if the model encounters any token specified in the stop array|string.
          *
          * @var array|string|null
@@ -132,15 +142,28 @@ final class ChatData extends DataTransferObject
 
         /**
          * Enable think tokens.
-         * Default: false
+         * Note: This parameter is the legacy parameter and will be removed in the future.
          *
          * @var bool|null
+         * @deprecated Use '$reasoning' parameter instead (it is backward compatible with the old parameter).
          */
         public ?bool $include_reasoning = false,
-    )
-    {
+
+        /**
+         * For models that support it, the OpenRouter API can return Reasoning Tokens, also known as thinking tokens.
+         * See: https://openrouter.ai/docs/use-cases/reasoning-tokens
+         *
+         * @var ReasoningData|null
+         */
+        public ?ReasoningData $reasoning = null,
+    ) {
         $this->validateXorFields($this->messages, $this->prompt);
         $this->validateXorFields($this->model, $this->models);
+
+        // Legacy mapping: only if no explicit reasoning provided
+        if ($this->reasoning === null && $this->include_reasoning !== null) {
+            $this->reasoning = new ReasoningData(exclude: ! $this->include_reasoning);
+        }
 
         parent::__construct(...func_get_args());
     }
@@ -180,11 +203,12 @@ final class ChatData extends DataTransferObject
                         } else {
                             return $value;
                         }
-                        }, $this->messages)
+                    }, $this->messages)
                     : null,
                 'prompt'             => $this->prompt,
                 'model'              => $this->model,
                 'response_format'    => $this->response_format?->convertToArray(),
+                'usage'              => $this->usage ? ['include' => true] : null,
                 'stop'               => $this->stop,
                 'stream'             => $this->stream,
                 'max_tokens'         => $this->max_tokens,
@@ -203,14 +227,14 @@ final class ChatData extends DataTransferObject
                         } else {
                             return $value;
                         }
-                        }, $this->tools)
+                    }, $this->tools)
                     : null,
                 'logit_bias'         => $this->logit_bias,
                 'transforms'         => $this->transforms,
                 'models'             => $this->models,
                 'route'              => $this->route,
                 'provider'           => $this->provider?->convertToArray(),
-                'include_reasoning'  => $this->include_reasoning,
+                'reasoning'          => $this->reasoning?->convertToArray(),
             ],
             fn($value) => $value !== null
         );
